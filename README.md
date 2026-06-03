@@ -29,3 +29,13 @@ Aria2DM-PHP allows you to control your Aria2c engine directly from your browser 
    sudo ./aria2dm.sh
 4. Access the dashboard via your browser: http://your-server-ip/aria2dm
 5. Default Password: admin (request a change after first login)
+
+## 📸 Screenshots
+
+Berikut adalah tampilan dari **Aria2DM-PHP**:
+
+**Dashboard Utama:**
+![Dashboard](SS/SS1.png)
+
+**Menu Pengaturan (Settings):**
+![Settings](SS/SS2.png)
