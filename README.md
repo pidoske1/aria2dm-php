@@ -24,8 +24,8 @@ Aria2DM-PHP allows you to control your Aria2c engine directly from your browser 
 **Method 1: Using the Installer Script (Recommended)**
 1. Clone this repository or download the ZIP file and extract it.
 2. Navigate to the extracted folder.
-3. Run the installer script as root/sudo:
-   sudo chmod +x aria2dm.sh
+3. Run the installer script as root/sudo:<br>
+   sudo chmod +x aria2dm.sh<br>
    sudo ./aria2dm.sh
 4. Access the dashboard via your browser: http://your-server-ip/aria2dm
 5. Default Password: admin (request a change after first login)
