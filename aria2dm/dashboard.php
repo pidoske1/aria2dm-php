@@ -399,7 +399,7 @@ function __($key) {
                     </button>
                     <div id="adv-settings" class="hidden mt-3 p-4 bg-[#18181c] border border-gray-700 rounded-lg">
                         <label class="block text-xs font-semibold text-gray-400 mb-1"><?= __('max_dl_speed') ?> (K/M):</label>
-                        <input type="text" name="new_dl_speed" placeholder="Maksimal: 500K atau 2M" class="w-full bg-[#202026] text-white p-2.5 rounded border border-gray-700 text-sm focus:outline-none focus:border-cyan-500 placeholder-gray-600">
+                        <input type="text" name="new_dl_speed" placeholder="Contoh: 500K atau 2M" class="w-full bg-[#202026] text-white p-2.5 rounded border border-gray-700 text-sm focus:outline-none focus:border-cyan-500 placeholder-gray-600">
                     </div>
                 </div>
 
