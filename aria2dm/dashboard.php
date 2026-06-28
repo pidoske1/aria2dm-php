@@ -11,6 +11,11 @@ $current_lang_code = $_SESSION['lang'] ?? $settings['language'] ?? 'en';
 $lang = $manager->getLanguageData($current_lang_code);
 $available_langs = $manager->getAvailableLanguages();
 
+$current_dir = '/mnt/Downloads';
+if (preg_match('/^dir=(.+)$/m', $ariaConfig['conf_content'], $matches)) {
+    $current_dir = trim($matches[1]);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['change_lang'])) {
         $_SESSION['lang'] = $_POST['lang'];
@@ -57,63 +62,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         else $success_msg = $lang['success_speed'] ?? "Speed limit file diperbarui.";
     }
     elseif (isset($_POST['save_settings'])) {
-        $confPath = $_POST['conf_path'];
-        $confContent = $_POST['conf_content'];
-        $confDir = dirname($confPath);
+        $rpcUrl = $_POST['rpc_url'] ?? '';
+        $secret = $_POST['secret'] ?? '';
+        $confPath = $_POST['conf_path'] ?? (__DIR__ . '/aria2.conf');
+        $confContent = $_POST['conf_content'] ?? '';
+
+        $save_set = $manager->updateSettings($rpcUrl, $secret);
+        $save_conf = $manager->updateAriaConfig($confPath, $confContent);
         
-        preg_match('/\/home\/([^\/]+)\//', $confPath, $u_match);
-        $cmd_user = $u_match[1] ?? (exec('whoami') ?: 'stb');
-        
+        @file_put_contents($confPath, $confContent);
+
+        $_SESSION['open_modal'] = 'settings-modal';
+
         $dlDir = '';
-        if (preg_match('/^dir=(.+)$/m', $confContent, $matches)) {
+        if (!empty($confContent) && preg_match('/^dir=(.+)$/m', $confContent, $matches)) {
             $dlDir = trim($matches[1]);
         }
 
-        $save_set = $manager->updateSettings($_POST['rpc_url'], $_POST['secret']);
-        $save_conf = $manager->updateAriaConfig($_POST['conf_path'], $_POST['conf_content']);
-        $_SESSION['open_modal'] = 'settings-modal';
-
-        $permission_error = false;
-
-        if (!is_dir($confDir) && !@mkdir($confDir, 0777, true)) { $permission_error = true; }
-        elseif (@file_put_contents($confPath, $confContent) === false) { $permission_error = true; }
-
-        if (!$permission_error && preg_match('/^input=(.+)$/m', $confContent, $matches)) {
-            $sess = trim($matches[1]); $sDir = dirname($sess);
-            if (!is_dir($sDir) && !@mkdir($sDir, 0777, true)) { $permission_error = true; }
-            elseif (!file_exists($sess) && @touch($sess) === false) { $permission_error = true; }
-        }
-
-        if (!$permission_error && !empty($dlDir)) {
-            if (!is_dir($dlDir) && !@mkdir($dlDir, 0777, true)) { $permission_error = true; }
-            elseif (!is_writable($dlDir)) { $permission_error = true; }
-        }
-
-        if (!$save_conf || !$save_set) {
-            $webDir = __DIR__;
-            $error_msg = "<div class='font-bold mb-1'>Gagal menyimpan file aria2.json internal!</div>" . 
-                         "<div class='text-xs text-gray-300 mb-2'>Web Server (www-data) tidak memiliki izin tulis di folder web. Jalankan perintah berikut:</div>" . 
-                         "<textarea readonly class='w-full bg-[#0a0a0c] p-3 rounded text-left font-mono text-[11px] leading-relaxed text-yellow-400 border border-yellow-800/50 outline-none resize-none mt-2' rows='2' onclick='this.select()'>sudo chown -R www-data:www-data " . $webDir . "</textarea>";
-        } elseif ($permission_error) {
-            $fix_script = "sudo groupadd aria2cfg\n";
-            $fix_script .= "sudo usermod -aG aria2cfg www-data\n";
-            $fix_script .= "sudo usermod -aG aria2cfg " . $cmd_user . "\n\n";
-            
-            $fix_script .= "sudo mkdir -p " . $confDir . "\n";
-            $fix_script .= "sudo chgrp -R aria2cfg " . $confDir . "\n";
-            $fix_script .= "sudo chmod -R 2775 " . $confDir . "\n\n";
-            
-            if (!empty($dlDir)) {
-                $fix_script .= "sudo mkdir -p " . $dlDir . "\n";
-                $fix_script .= "sudo chgrp -R aria2cfg " . $dlDir . "\n";
-                $fix_script .= "sudo chmod -R 2775 " . $dlDir;
-            }
-
-            $error_msg = "<div class='font-bold mb-1'>" . ($lang['error_permission'] ?? "Akses Ditolak (Folder Target)!") . "</div>" . 
-                         "<textarea readonly class='w-full bg-[#0a0a0c] p-3 rounded text-left font-mono text-[11px] leading-relaxed text-yellow-400 border border-yellow-800/50 outline-none resize-none mt-2' rows='11' onclick='this.select()'>" . 
-                         htmlspecialchars($fix_script) . "</textarea>";
+        if (!empty($dlDir) && (!is_dir($dlDir) || !is_writable($dlDir))) {
+            $error_msg = "Akses ditolak ke lokasi unduhan. Jalankan di terminal: <br><b class='text-cyan-400'>sudo mkdir -p $dlDir && sudo chmod -R 777 $dlDir</b>";
         } else {
-            $success_msg = $lang['success_settings'] ?? "Konfigurasi tersimpan dan folder/file sukses dibuat.";
+            $success_msg = $lang['success_settings'] ?? "Konfigurasi berhasil disimpan.";
         }
     }
     elseif (isset($_POST['start_service'])) {
@@ -132,7 +101,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $_SESSION['open_modal'] = 'settings-modal'; 
     }
-    // PERBAIKAN NOTIFIKASI BAHASA UNTUK AKSI MASAL (RESUME/STOP/DELETE)
     elseif (isset($_POST['action']) && isset($_POST['selected_ids'])) {
         $action = $_POST['action'];
         $count = count($_POST['selected_ids']);
@@ -152,7 +120,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // Menggunakan str_replace untuk memasukkan angka ($count) ke dalam teks terjemahan JSON
         if ($hasError && $action === 'resume') {
             $error_msg = is_string($hasError) ? $hasError : str_replace('{count}', $count, $lang['error_resume_bulk'] ?? "Gagal me-resume {count} item.");
         } else {
@@ -197,6 +164,7 @@ function __($key) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aria2 Download Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
+	<link rel="icon" type="image/png" href="icon.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { background-color: #121216; color: #9ca3af; }
@@ -340,7 +308,6 @@ function __($key) {
 </head>
 <body class="flex h-screen overflow-hidden">
 
-    <!-- TOAST NOTIFICATION (MENGAMBANG DI ATAS MODAL Z-[70]) -->
     <div id="toast-container" class="fixed top-6 right-6 z-[70] flex flex-col space-y-3 w-[450px] pointer-events-none transition-opacity duration-500">
         <?php if(!empty($success_msg)): ?>
             <div class="bg-green-950 border border-green-800 text-green-300 px-5 py-4 rounded-xl text-sm flex items-start shadow-2xl pointer-events-auto relative">
@@ -362,7 +329,6 @@ function __($key) {
         <?php endif; ?>
     </div>
 
-    <!-- MODAL NEW DOWNLOAD -->
     <div id="add-download-modal" class="fixed inset-0 modal items-center justify-center z-50 overflow-y-auto pt-10 pb-10">
         <div class="bg-[#202026] p-6 rounded-xl w-[550px] border border-gray-700 my-auto shadow-2xl shadow-purple-500/10">
             <h3 class="text-white text-lg font-bold mb-5"><i class="fa-solid fa-cloud-arrow-down text-cyan-400 mr-2"></i><?= __('new_download') ?></h3>
@@ -412,7 +378,6 @@ function __($key) {
         </div>
     </div>
 
-    <!-- MODAL SPEED INDIVIDUAL LIMIT -->
     <div id="speed-modal" class="fixed inset-0 modal items-center justify-center z-50">
         <div class="bg-[#202026] p-6 rounded-xl w-[400px] border border-gray-700 shadow-2xl shadow-purple-500/10">
             <h3 class="text-white text-lg font-bold mb-4"><i class="fa-solid fa-gauge-high text-cyan-400 mr-2"></i><?= __('speed_modal_title') ?></h3>
@@ -430,7 +395,6 @@ function __($key) {
         </div>
     </div>
 
-    <!-- SETTINGS MODAL -->
     <div id="settings-modal" class="fixed inset-0 modal items-center justify-center z-50 overflow-y-auto pt-10 pb-10">
         <div class="bg-[#202026] p-6 rounded-xl w-[550px] border border-gray-700 my-auto shadow-2xl shadow-cyan-500/10">
             <div class="flex justify-between items-center mb-5">
@@ -442,21 +406,22 @@ function __($key) {
                 <div class="border border-gray-800 p-4 rounded-lg bg-[#18181c] space-y-3">
                     <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">1. <?= __('engine_settings') ?></h4>
                     
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-400 mb-1"><?= __('config_path') ?> (Edit User):</label>
-                        <div class="flex items-center w-full bg-[#202026] border border-gray-700 rounded px-3 py-1.5 focus-within:border-cyan-500 transition-colors">
-                            <span class="text-gray-400 text-sm">/home/</span>
-                            <input type="text" id="config_user" value="<?= htmlspecialchars($conf_user) ?>" class="bg-transparent text-cyan-400 text-sm font-bold w-20 text-center mx-1 focus:outline-none" onkeyup="updateConfigContent()">
-                            <span class="text-gray-400 text-sm">/.config/aria2/aria2.conf</span>
+                    <div class="mb-4">
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Config Location:</label>
+                        <div class="flex items-center w-full bg-[#18181c] border border-gray-700 rounded px-3 py-2 text-gray-400 text-sm">
+                            <i class="fa-solid fa-folder-open mr-2 text-cyan-500"></i>
+                            <span><?= __DIR__ . '/aria2.conf' ?></span>
                         </div>
-                        <input type="hidden" name="conf_path" id="conf_path" value="<?= htmlspecialchars($ariaConfig['conf_path']) ?>">
+                        <input type="hidden" name="conf_path" value="<?= __DIR__ . '/aria2.conf' ?>">
                     </div>
 
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-400 mb-1">Download Directory (dir=):</label>
-                        <input type="text" id="config_dir" value="<?= htmlspecialchars($conf_dir) ?>" class="w-full bg-[#202026] text-white p-2 rounded border border-gray-700 text-sm focus:outline-none focus:border-cyan-500" onkeyup="updateConfigContent()">
+                    <div class="mb-4">
+                        <label class="block text-xs font-semibold text-gray-400 mb-1">Default Download Directory:</label>
+                        <input type="text" id="dl_dir_input" value="<?= htmlspecialchars($current_dir) ?>" 
+                               class="w-full bg-[#18181c] border border-gray-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500"
+                               oninput="syncConfigRealtime()">
                     </div>
-
+					
                     <div>
                         <label class="block text-xs font-semibold text-gray-400 mb-1"><?= __('config_content') ?>:</label>
                         <textarea name="conf_content" id="conf_content" rows="6" class="w-full bg-[#202026] text-green-400 p-2.5 rounded border border-gray-700 text-xs font-mono focus:outline-none focus:border-cyan-500 leading-relaxed" required><?= htmlspecialchars($ariaConfig['conf_content']) ?></textarea>
@@ -470,9 +435,11 @@ function __($key) {
                             <label class="block text-xs font-semibold text-gray-400 mb-1"><?= __('rpc_url') ?>:</label>
                             <input type="text" name="rpc_url" value="<?= htmlspecialchars($settings['rpc_url']) ?>" class="w-full bg-[#202026] text-white p-2 rounded border border-gray-700 text-sm focus:outline-none focus:border-cyan-500" required>
                         </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-400 mb-1"><?= __('secret_token') ?>:</label>
-                            <input type="text" name="secret" value="<?= htmlspecialchars($settings['secret']) ?>" class="w-full bg-[#202026] text-white p-2 rounded border border-gray-700 text-sm focus:outline-none focus:border-cyan-500" required>
+                        <div class="mb-4">
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">RPC Secret Token:</label>
+                            <input type="text" name="secret" id="secret_input" value="<?= htmlspecialchars($settings['secret']) ?>" 
+                                   class="w-full bg-[#18181c] border border-gray-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500"
+                                   oninput="syncConfigRealtime()">
                         </div>
                     </div>
                 </div>
@@ -502,7 +469,6 @@ function __($key) {
         </div>
     </div>
 
-    <!-- Edit URL Modal -->
     <div id="edit-url-modal" class="fixed inset-0 modal items-center justify-center z-50">
         <div class="bg-[#202026] p-6 rounded-xl w-[500px] border border-gray-700">
             <h3 class="text-white text-lg font-bold mb-4"><i class="fa-solid fa-pen-to-square text-cyan-400 mr-2"></i><?= __('edit_url_title') ?></h3>
@@ -523,7 +489,6 @@ function __($key) {
         </div>
     </div>
 
-    <!-- Delete Modal -->
     <div id="delete-modal" class="fixed inset-0 modal items-center justify-center z-50">
         <div class="bg-[#202026] p-6 rounded-xl w-96 border border-gray-700">
             <h3 class="text-red-400 text-lg font-bold mb-3"><i class="fa-solid fa-triangle-exclamation"></i> <?= __('confirm_delete') ?></h3>
@@ -600,7 +565,6 @@ function __($key) {
                         <?php 
                             $badgeColor = 'bg-gray-700 text-gray-300';
                             
-                            // SET WARNA LENCANA STATUS
                             if ($file['is_creating']) {
                                 $badgeColor = 'bg-blue-950 text-blue-400 border border-blue-800';
                             } else {
@@ -697,7 +661,6 @@ function __($key) {
         </footer>
     </main>
     
-    <!-- SCRIPT AUTO-HIDE TOAST (2 DETIK) & AUTO-OPEN MODAL -->
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             <?php if (!empty($open_modal_id)): ?>
@@ -709,9 +672,33 @@ function __($key) {
                 setTimeout(() => {
                     toast.style.opacity = '0';
                     setTimeout(() => toast.style.display = 'none', 500); 
-                }, 2000); 
+                }, 3000); 
             }
         });
+		
+		function syncConfigRealtime() {
+            const secretVal = document.getElementById('secret_input').value;
+            const dirVal = document.getElementById('dl_dir_input').value;
+        
+            const confTextarea = document.getElementById('conf_content');
+            if (!confTextarea) return;
+        
+            let content = confTextarea.value;
+        
+            if (content.match(/^rpc-secret=.*$/m)) {
+            content = content.replace(/^rpc-secret=.*$/m, 'rpc-secret=' + secretVal);
+            } else {
+                content += '\nrpc-secret=' + secretVal;
+            }
+        
+            if (content.match(/^dir=.*$/m)) {
+                content = content.replace(/^dir=.*$/m, 'dir=' + dirVal);
+            } else {
+                content = 'dir=' + dirVal + '\n' + content;
+            }
+        
+        confTextarea.value = content;
+        }
     </script>
 </body>
 </html>
