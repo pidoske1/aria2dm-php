@@ -38,8 +38,8 @@ cp -r aria2dm/* $DEST_DIR/
 
 echo -e "\n${YELLOW}[3/4] Mengatur perizinan web server...${NC}"
 chown -R www-data:www-data $DEST_DIR
-find $DEST_DIR -type d -exec chmod 755 {} \;
-find $DEST_DIR -type f -exec chmod 644 {} \;
+find $DEST_DIR -type d -exec chmod 777 {} \;
+find $DEST_DIR -type f -exec chmod 666 {} \;
 
 echo -e "\n${YELLOW}[4/4] Selesai!${NC}"
 echo -e "${GREEN}=========================================${NC}"
