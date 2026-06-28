@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { width: 350px; background-color: #121216; color: #9ca3af; margin: 0; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; flex-direction: column; }
+        .header { background-color: #1a1a20; padding: 12px 15px; border-bottom: 1px solid #374151; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; }
+        .header h2 { margin: 0; font-size: 14px; color: #fff; }
+        .header h2 i { color: #06b6d4; margin-right: 8px; }
+        .btn-dash { background-color: #374151; color: #d1d5db; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .btn-dash:hover { background-color: #4b5563; color: white; }
+        
+        .container { padding: 10px; overflow-y: auto; max-height: 400px; min-height: 100px; }
+        
+        .task-card { background-color: #1a1a20; border: 1px solid #374151; padding: 10px; border-radius: 6px; margin-bottom: 10px; }
+        .task-name { font-size: 11px; color: #fff; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px; }
+        .task-stats { display: flex; justify-content: space-between; font-size: 10px; color: #9ca3af; margin-bottom: 6px; }
+        .progress-bg { background-color: #374151; height: 5px; border-radius: 3px; margin-bottom: 8px; overflow: hidden; }
+        .progress-bar { background-color: #06b6d4; height: 100%; width: 0%; transition: width 0.5s; }
+        
+        .action-btns { display: flex; justify-content: flex-end; gap: 5px; }
+        .btn-action { border: none; border-radius: 4px; width: 24px; height: 24px; color: white; cursor: pointer; font-size: 10px; display: flex; align-items: center; justify-content: center; }
+        .btn-pause { background-color: #ca8a04; } .btn-pause:hover { background-color: #a16207; }
+        .btn-resume { background-color: #16a34a; } .btn-resume:hover { background-color: #15803d; }
+        .btn-delete { background-color: #dc2626; } .btn-delete:hover { background-color: #b91c1c; }
+        
+        #empty_state { text-align: center; font-size: 12px; margin-top: 30px; color: #6b7280; }
+        ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
+
+        /* Modal Konfirmasi Hapus */
+        #confirm_modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 50; justify-content: center; align-items: center; padding: 20px; }
+        .modal-content { background: #1a1a20; border: 1px solid #374151; border-radius: 8px; padding: 15px; width: 100%; text-align: center; }
+        .modal-title { color: white; font-size: 13px; font-weight: bold; margin-bottom: 5px; }
+        .modal-desc { color: #9ca3af; font-size: 11px; margin-bottom: 15px; line-height: 1.4; }
+        .modal-desc span { color: #f87171; font-weight: bold; }
+        .modal-actions { display: flex; gap: 10px; justify-content: center; }
+        .modal-btn { padding: 6px 12px; font-size: 11px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-cancel { background: #374151; color: white; }
+        .btn-confirm { background: #dc2626; color: white; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2 id="popup_title"><i class="fa-solid fa-cloud-arrow-down"></i> Aria2DM Status</h2>
+        <button id="btn_open_dash" class="btn-dash"><i class="fa-solid fa-up-right-from-square"></i></button>
+    </div>
+    
+    <div class="container" id="downloads_list">
+        <div id="empty_state"><i class="fa-solid fa-spinner fa-spin"></i> ...</div>
+    </div>
+
+    <div id="confirm_modal">
+        <div class="modal-content">
+            <div class="modal-title" id="modal_title"></div>
+            <div class="modal-desc" id="modal_desc"></div>
+            <div class="modal-actions">
+                <button id="btn_cancel_del" class="modal-btn btn-cancel"></button>
+                <button id="btn_confirm_del" class="modal-btn btn-confirm"></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
