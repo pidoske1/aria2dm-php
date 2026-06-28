@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Aria2DM Chrome Integrator",
+  "version": "1.0",
+  "description": "Kirim link download langsung ke Aria2DM RPC.",
+  "permissions": [
+    "contextMenus",
+    "storage",
+    "notifications"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "128": "icon.png"
+    }
+  },
+  "icons": {
+    "128": "icon.png"
+  }
+}
