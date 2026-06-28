@@ -77,19 +77,24 @@ class AriaManager {
     }
 
     public function getAriaConfig() {
-        if (!file_exists($this->ariaConfigFile)) {
-            $user = exec('whoami') ?: 'stb';
-            $defaultContent = "dir=/mnt/Downloads\n\ncontinue=true\nmax-concurrent-downloads=5\nsplit=16\nmax-connection-per-server=16\n\nforce-save=true\n\nenable-rpc=true\nrpc-listen-all=true\nrpc-listen-port=6800\nrpc-secret=Token123\nrpc-allow-origin-all=true\n\ninput=/home/$user/.config/aria2/aria2.session\nsave-session=/home/$user/.config/aria2/aria2.session\nsave-session-interval=60";
-            
-            $default = [
-                'conf_path' => "/home/$user/.config/aria2/aria2.conf",
-                'conf_content' => $defaultContent
-            ];
-            file_put_contents($this->ariaConfigFile, json_encode($default, JSON_PRETTY_PRINT));
-            return $default;
-        }
-        return json_decode(file_get_contents($this->ariaConfigFile), true) ?? [];
+    $confPath = __DIR__ . '/aria2.conf';
+    $sessionPath = __DIR__ . '/aria2.session';
+
+    if (!file_exists($this->ariaConfigFile)) {
+        $defaultContent = "dir=/mnt/Downloads\n\ncontinue=true\nmax-concurrent-downloads=5\nsplit=16\nmax-connection-per-server=16\n\nforce-save=true\n\nenable-rpc=true\nrpc-listen-all=true\nrpc-listen-port=6800\nrpc-secret=Token123\nrpc-allow-origin-all=true\n\ninput=$sessionPath\nsave-session=$sessionPath\nsave-session-interval=60";
+        
+        $default = [
+            'conf_path' => $confPath,
+            'conf_content' => $defaultContent
+        ];
+        file_put_contents($this->ariaConfigFile, json_encode($default, JSON_PRETTY_PRINT));
+        return $default;
     }
+    
+    $data = json_decode(file_get_contents($this->ariaConfigFile), true);
+    $data['conf_path'] = $confPath; 
+    return $data;
+}
 
     public function updateAriaConfig($path, $content) {
         $config = ['conf_path' => $path, 'conf_content' => $content];
@@ -401,17 +406,13 @@ class AriaManager {
         return false;
     }
 
-    // UPDATE PENTING: Resume Cerdas untuk Handle Restart Device
     public function resumeDownload($gid) {
         $res = $this->rpc('aria2.unpause', [$gid]);
         
-        // Jika Aria2 masih hafal GID tersebut, unpause akan langsung sukses
         if (!empty($res['result'])) {
             return true;
         }
 
-        // Jika Gagal (Kemungkinan GID hilang dari memori karena Restart)
-        // Kita akan paksa daftar ulang (addUri) URL-nya
         $localData = $this->getLocalDownloadsData();
         $taskData = null;
         foreach ($localData as $item) {
@@ -430,13 +431,11 @@ class AriaManager {
                 $targetDir = trim($matches[1]);
             }
 
-            // Daftarkan sebagai unduhan baru (Karena continue=true, file lama akan disambung)
             $newRes = $this->rpc('aria2.addUri', [ [$url], ['dir' => $targetDir] ]);
             
             if (!empty($newRes['result'])) {
                 $newGid = $newRes['result'];
                 
-                // Update file JSON, Ganti GID lama yang mati menjadi GID yang baru menyala
                 foreach ($localData as &$ld) {
                     if ($ld['gid'] === $gid) {
                         $ld['gid'] = $newGid;
@@ -460,10 +459,9 @@ class AriaManager {
     public function stopDownload($gid) {
         $res = $this->rpc('aria2.pause', [$gid]);
         if(empty($res['result'])) {
-             $this->rpc('aria2.forcePause', [$gid]); // Paksa berhenti jika bandel
+             $this->rpc('aria2.forcePause', [$gid]);
         }
         
-        // Update langsung ke JSON agar UI terasa responsif
         $localData = $this->getLocalDownloadsData();
         foreach ($localData as &$ld) {
             if ($ld['gid'] === $gid) {
@@ -477,7 +475,6 @@ class AriaManager {
         return true;
     }
 
-    // UPDATE PENTING: Smart Edit (Meskipun Task Hilang Dari Engine, Tetap Bisa Diedit)
     public function editDownloadUrl($gid, $newUrl) {
         $newUrl = trim($newUrl);
         if (empty($newUrl)) return "URL tidak boleh kosong.";
@@ -485,7 +482,6 @@ class AriaManager {
         $oldTask = $this->rpc('aria2.tellStatus', [$gid]);
         $options = new stdClass();
 
-        // Jika Task masih eksis di Engine, kita copot dulu
         if (!empty($oldTask['result'])) {
             $task = $oldTask['result'];
             if (!empty($task['dir'])) $options->dir = $task['dir'];
@@ -497,7 +493,6 @@ class AriaManager {
                 $this->rpc('aria2.removeDownloadResult', [$gid]);
             }
         } else {
-            // Task tidak ada di Aria2, kita pasang lokasi standar
             $ariaConfig = $this->getAriaConfig();
             if (preg_match('/^dir=(.+)$/m', $ariaConfig['conf_content'] ?? '', $matches)) {
                 $options->dir = trim($matches[1]);
